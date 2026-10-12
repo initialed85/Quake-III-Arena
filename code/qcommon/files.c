@@ -253,6 +253,7 @@ static	cvar_t		*fs_basepath;
 static	cvar_t		*fs_basegame;
 static	cvar_t		*fs_cdpath;
 static	cvar_t		*fs_copyfiles;
+static	cvar_t		*fs_logDeps;
 static	cvar_t		*fs_gamedirvar;
 static	cvar_t		*fs_restrict;
 static	searchpath_t	*fs_searchpaths;
@@ -1089,6 +1090,10 @@ int FS_FOpenFileRead( const char *filename, fileHandle_t *file, qboolean uniqueF
 				// case and separator insensitive comparisons
 				if ( !FS_FilenameCompare( pakFile->name, filename ) ) {
 					// found it!
+
+					if ( fs_logDeps ) {
+						Com_Printf("DEP %s\n", pakFile->name);
+					}
 
 					// mark the pak as having been referenced and mark specifics on cgame and ui
 					// shaders, txt, arena files  by themselves do not count as a reference as 
@@ -2745,6 +2750,7 @@ static void FS_Startup( const char *gameName ) {
 
 	fs_debug = Cvar_Get( "fs_debug", "0", 0 );
 	fs_copyfiles = Cvar_Get( "fs_copyfiles", "0", CVAR_INIT );
+	fs_logDeps = Cvar_Get( "fs_logDeps", "0", CVAR_TEMP );
 	fs_cdpath = Cvar_Get ("fs_cdpath", Sys_DefaultCDPath(), CVAR_INIT );
 	fs_basepath = Cvar_Get ("fs_basepath", Sys_DefaultInstallPath(), CVAR_INIT );
 	fs_basegame = Cvar_Get ("fs_basegame", "", CVAR_INIT );

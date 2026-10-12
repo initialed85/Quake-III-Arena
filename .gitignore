@@ -1,8 +1,6 @@
 baseq3/**
 build/**
 
-PLAN.md
-
 build-asan/
 build-debug/
 build-native/
