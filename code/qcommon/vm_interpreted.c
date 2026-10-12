@@ -311,7 +311,7 @@ locals from sp
 #define	DEBUGSTR va("%s%i", VM_Indent(vm), opStack-stack )
 
 int	VM_CallInterpreted( vm_t *vm, int *args ) {
-	int		stack[MAX_STACK];
+	int		stack[MAX_STACK+1];
 	int		*opStack;
 	int		programCounter;
 	int		programStack;
@@ -344,7 +344,7 @@ int	VM_CallInterpreted( vm_t *vm, int *args ) {
 	// leave a free spot at start of stack so
 	// that as long as opStack is valid, opStack-1 will
 	// not corrupt anything
-	opStack = stack;
+	opStack = stack+1;
 	programCounter = 0;
 
 	programStack -= 48;
@@ -878,7 +878,7 @@ nextInstruction2:
 done:
 	vm->currentlyInterpreting = qfalse;
 
-	if ( opStack != &stack[1] ) {
+	if ( opStack != &stack[2] ) {
 		Com_Error( ERR_DROP, "Interpreter error: opStack = %i", opStack - stack );
 	}
 

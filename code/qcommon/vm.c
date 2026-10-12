@@ -490,6 +490,13 @@ vm_t *VM_Create( const char *module, int (*systemCalls)(int *),
 		interpret = VMI_COMPILED;
 	}
 
+#ifdef oDLL_ONLY
+	// no x86 JIT in this build, so bytecode is the only option
+	if ( interpret >= VMI_COMPILED ) {
+		interpret = VMI_BYTECODE;
+	}
+#endif
+
 	// load the image
 	Com_sprintf( filename, sizeof(filename), "vm/%s.qvm", vm->name );
 	Com_Printf( "Loading vm file %s.\n", filename );
@@ -701,7 +708,14 @@ int	QDECL VM_Call( vm_t *vm, int callnum, ... ) {
 	} else if ( vm->compiled ) {
 		r = VM_CallCompiled( vm, &callnum );
 	} else {
-		r = VM_CallInterpreted( vm, &callnum );
+		// the interpreter reads args[0..9]; args[0] is the call number
+		va_start(ap, callnum);
+		for (i = 1; i < sizeof (args) / sizeof (args[i]); i++) {
+			args[i] = va_arg(ap, int);
+		}
+		va_end(ap);
+		args[0] = callnum;
+		r = VM_CallInterpreted( vm, args );
 	}
 
 	if ( oldVM != NULL ) // bk001220 - assert(currentVM!=NULL) for oldVM==NULL

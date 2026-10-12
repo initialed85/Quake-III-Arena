@@ -83,7 +83,7 @@ typedef struct {
 	byte				file[65536];
 	short				sqrTable[256];
 
-	unsigned int		mcomp[256];
+	int					mcomp[256];
 	byte				*qStatus[2][32768];
 
 	long				oldXOff, oldYOff, oldysize, oldxsize;
@@ -1013,6 +1013,7 @@ static void setupQuad( long xOff, long yOff )
 		for(x=0;x<(long)cinTable[currentHandle].xsize;x+=16) 
 			recurseQuad( x, y, 16, xOff, yOff );
 
+
 	temp = NULL;
 
 	for(i=(numQuadCels-64);i<numQuadCels;i++) {
@@ -1050,8 +1051,8 @@ static void readQuadInfo( byte *qData )
 	cinTable[currentHandle].VQ0 = cinTable[currentHandle].VQNormal;
 	cinTable[currentHandle].VQ1 = cinTable[currentHandle].VQBuffer;
 
-	cinTable[currentHandle].t[0] = (0 - (unsigned int)cin.linbuf)+(unsigned int)cin.linbuf+cinTable[currentHandle].screenDelta;
-	cinTable[currentHandle].t[1] = (0 - ((unsigned int)cin.linbuf + cinTable[currentHandle].screenDelta))+(unsigned int)cin.linbuf;
+	cinTable[currentHandle].t[0] = cinTable[currentHandle].screenDelta;
+	cinTable[currentHandle].t[1] = -cinTable[currentHandle].screenDelta;
 
         cinTable[currentHandle].drawX = cinTable[currentHandle].CIN_WIDTH;
         cinTable[currentHandle].drawY = cinTable[currentHandle].CIN_HEIGHT;
@@ -1143,6 +1144,7 @@ static byte* RoQFetchInterlaced( byte *source ) {
 static void RoQReset() {
 	
 	if (currentHandle < 0) return;
+
 
 	Sys_EndStreamedFile(cinTable[currentHandle].iFile);
 	FS_FCloseFile( cinTable[currentHandle].iFile );
@@ -1469,7 +1471,7 @@ e_status CIN_RunCinematic (int handle)
 	  }
 	}
 
-	return cinTable[currentHandle].status;
+	return currentHandle < 0 ? FMV_EOF : cinTable[currentHandle].status;
 }
 
 /*

@@ -1,6 +1,8 @@
 /* GLOBAL.H - RSAREF types and constants */
 
 #include <string.h>
+#include "../game/q_shared.h"
+#include "qcommon.h"
 #if defined(_WIN32)
 #pragma warning(disable : 4711)		// selected for automatic inline expansion
 #endif
@@ -12,7 +14,7 @@ typedef unsigned char *POINTER;
 typedef unsigned short int UINT2;
 
 /* UINT4 defines a four byte word */
-typedef unsigned long int UINT4;
+typedef unsigned int UINT4;
 
   
 /* MD4.H - header file for MD4C.C */
@@ -21,9 +23,9 @@ typedef unsigned long int UINT4;
 
 All rights reserved.
   
-License to copy and use this software is granted provided that it is identified as the “RSA Data Security, Inc. MD4 Message-Digest Algorithm” in all material mentioning or referencing this software or this function.
-License is also granted to make and use derivative works provided that such works are identified as “derived from the RSA Data Security, Inc. MD4 Message-Digest Algorithm” in all material mentioning or referencing the derived work.
-RSA Data Security, Inc. makes no representations concerning either the merchantability of this software or the suitability of this software for any particular purpose. It is provided “as is” without express or implied warranty of any kind.
+License to copy and use this software is granted provided that it is identified as the ï¿½RSA Data Security, Inc. MD4 Message-Digest Algorithmï¿½ in all material mentioning or referencing this software or this function.
+License is also granted to make and use derivative works provided that such works are identified as ï¿½derived from the RSA Data Security, Inc. MD4 Message-Digest Algorithmï¿½ in all material mentioning or referencing the derived work.
+RSA Data Security, Inc. makes no representations concerning either the merchantability of this software or the suitability of this software for any particular purpose. It is provided ï¿½as isï¿½ without express or implied warranty of any kind.
   
 These notices must be retained in any copies of any part of this documentation and/or software. */
 
@@ -36,7 +38,7 @@ typedef struct {
 
 void MD4Init (MD4_CTX *);
 void MD4Update (MD4_CTX *, const unsigned char *, unsigned int);
-void MD4Final (unsigned char [16], MD4_CTX *);
+void MD4Final (unsigned char *, MD4_CTX *);
 
 #ifndef __VECTORC  
 void Com_Memset (void* dest, const int val, const size_t count);
@@ -74,7 +76,7 @@ These notices must be retained in any copies of any part of this documentation a
 #define S33 11
 #define S34 15
 
-static void MD4Transform (UINT4 [4], const unsigned char [64]);
+static void MD4Transform (UINT4 *, const unsigned char *);
 static void Encode (unsigned char *, UINT4 *, unsigned int);
 static void Decode (UINT4 *, const unsigned char *, unsigned int);
 
@@ -267,7 +269,7 @@ for (i = 0, j = 0; j < len; i++, j += 4)
 
 //===================================================================
 
-unsigned Com_BlockChecksum (void *buffer, int length)
+unsigned Com_BlockChecksum (const void *buffer, int length)
 {
 	int			digest[4];
 	unsigned	val;

@@ -206,7 +206,15 @@ static void CG_CalcVrect (void) {
 
 	cg.refdef.x = (cgs.glconfig.vidWidth - cg.refdef.width)/2;
 	cg.refdef.y = (cgs.glconfig.vidHeight - cg.refdef.height)/2;
-}
+
+	{
+		static int vrectDebugCount = 0;
+		if ( vrectDebugCount < 5 ) {
+			vrectDebugCount++;
+			trap_Print(va("VRECT glconfig(%i,%i) refdef(%i,%i,%i,%i) viewsize %i\n", cgs.glconfig.vidWidth, cgs.glconfig.vidHeight, cg.refdef.x, cg.refdef.y, cg.refdef.width, cg.refdef.height, cg_viewsize.integer));
+		}
+	}
+
 
 //==============================================================================
 
@@ -796,6 +804,14 @@ void CG_DrawActiveFrame( int serverTime, stereoFrame_t stereoView, qboolean demo
 
 	// this counter will be bumped for every valid scene we generate
 	cg.clientFrame++;
+
+	{
+		static int dafDebugCount = 0;
+		if ( dafDebugCount < 5 ) {
+			dafDebugCount++;
+			trap_Print(va("DAF time=%i clientFrame=%i infoScreen=%i snap=%i\n", cg.time, cg.clientFrame, cg.infoScreenText[0], cg.snap ? cg.snap->number : -1));
+		}
+	}
 
 	// update cg.predictedPlayerState
 	CG_PredictPlayerState();

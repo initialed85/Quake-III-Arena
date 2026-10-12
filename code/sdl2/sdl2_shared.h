@@ -19,7 +19,25 @@ along with Foobar; if not, write to the Free Software
 Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 ===========================================================================
 */
+// sdl2_shared.h -- declarations shared between the SDL2 platform files
 
 char *strlwr(char *s);
 
 #define stricmp strcasecmp
+
+qboolean Sys_GetPacket ( netadr_t *net_from, msg_t *net_message );
+void Sys_SendKeyEvents (void);
+char *Sys_ConsoleInput(void);
+
+void IN_Init (void);
+void IN_Frame (void);
+void IN_Shutdown (void);
+void Sys_In_Restart_f (void);
+void Sys_Net_Restart_f (void);
+
+void Sys_QueEvent(int time, sysEventType_t type, int value, int value2, int ptrLength, void *ptr);
+
+void Sys_ShutdownAudio (void);
+void Sys_ShutdownWindow (void);
+
+void Sys_Quit (void);

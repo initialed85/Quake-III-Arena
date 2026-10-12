@@ -30,6 +30,15 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <GL/gl.h>
 
+#elif defined( __SDL2__ )
+
+#include <SDL.h>
+#ifdef __APPLE__
+#include <OpenGL/gl.h>
+#else
+#include <GL/gl.h>
+#endif
+
 #elif defined( _WIN32 )
 
 #pragma warning (disable: 4201)
@@ -91,6 +100,12 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define GL_TEXTURE3_ARB                     0x84C3
 
 // NOTE: some Linux platforms would need those prototypes
+#if defined(__SDL2__)
+typedef void (APIENTRY * PFNGLMULTITEXCOORD2FARBPROC) (GLenum target, GLfloat s, GLfloat t);
+typedef void (APIENTRY * PFNGLACTIVETEXTUREARBPROC) (GLenum target);
+typedef void (APIENTRY * PFNGLCLIENTACTIVETEXTUREARBPROC) (GLenum target);
+#endif
+
 #if defined(MACOS_X)
 typedef void (APIENTRY * PFNGLMULTITEXCOORD1DARBPROC) (GLenum target, GLdouble s);
 typedef void (APIENTRY * PFNGLMULTITEXCOORD1DVARBPROC) (GLenum target, const GLdouble *v);
@@ -157,7 +172,11 @@ extern	void ( APIENTRY * qglUnlockArraysEXT) (void);
 //===========================================================================
 
 // non-windows systems will just redefine qgl* to gl*
-#if !defined( _WIN32 ) && !defined(MACOS_X) && !defined( __linux__ ) && !defined( __FreeBSD__ ) // rb010123
+#if defined( __SDL2__ )
+
+#include "qgl_linked.h"
+
+#elif !defined( _WIN32 ) && !defined(MACOS_X) && !defined( __linux__ ) && !defined( __FreeBSD__ ) // rb010123
 
 #include "qgl_linked.h"
 

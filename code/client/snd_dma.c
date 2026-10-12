@@ -550,7 +550,7 @@ void S_StartSound(vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfxH
 
 	ch = s_channels;
 	inplay = 0;
-	for ( i = 0; i < MAX_CHANNELS ; i++, ch++ ) {		
+	for ( i = 0; i < MAX_CHANNELS ; i++ ) {		
 		if (ch[i].entnum == entityNum && ch[i].thesfx == sfx) {
 			if (time - ch[i].allocTime < 50) {
 //				if (Cvar_VariableValue( "cg_showmiss" )) {
@@ -574,25 +574,26 @@ void S_StartSound(vec3_t origin, int entityNum, int entchannel, sfxHandle_t sfxH
 
 		oldest = sfx->lastTimeUsed;
 		chosen = -1;
-		for ( i = 0 ; i < MAX_CHANNELS ; i++, ch++ ) {
-			if (ch->entnum != listener_number && ch->entnum == entityNum && ch->allocTime<oldest && ch->entchannel != CHAN_ANNOUNCER) {
-				oldest = ch->allocTime;
+		for ( i = 0 ; i < MAX_CHANNELS ; i++ ) {
+			if (ch[i].entnum != listener_number && ch[i].entnum == entityNum && ch[i].allocTime<oldest && ch[i].entchannel != CHAN_ANNOUNCER) {
+				oldest = ch[i].allocTime;
 				chosen = i;
 			}
 		}
 		if (chosen == -1) {
 			ch = s_channels;
-			for ( i = 0 ; i < MAX_CHANNELS ; i++, ch++ ) {
-				if (ch->entnum != listener_number && ch->allocTime<oldest && ch->entchannel != CHAN_ANNOUNCER) {
-					oldest = ch->allocTime;
+			for ( i = 0 ; i < MAX_CHANNELS ; i++ ) {
+				if (ch[i].entnum != listener_number && ch[i].allocTime<oldest && ch[i].entchannel != CHAN_ANNOUNCER) {
+					oldest = ch[i].allocTime;
 					chosen = i;
 				}
 			}
 			if (chosen == -1) {
-				if (ch->entnum == listener_number) {
-					for ( i = 0 ; i < MAX_CHANNELS ; i++, ch++ ) {
-						if (ch->allocTime<oldest) {
-							oldest = ch->allocTime;
+				if (s_channels[0].entnum == listener_number) {
+					ch = s_channels;
+					for ( i = 0 ; i < MAX_CHANNELS ; i++ ) {
+						if (ch[i].allocTime<oldest) {
+							oldest = ch[i].allocTime;
 							chosen = i;
 						}
 					}
