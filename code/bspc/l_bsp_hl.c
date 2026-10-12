@@ -247,7 +247,7 @@ int FastChecksum(void *buffer, int bytes)
 	int	checksum = 0;
 
 	while( bytes-- )  
-		checksum = (checksum << 4) ^ *((char *)buffer)++;
+		checksum = (checksum << 4) ^ (*((char *)buffer))++;
 
 	return checksum;
 }
@@ -637,7 +637,7 @@ void HL_WriteBSPFile (char *filename)
 #define ENTRIES(a)		(sizeof(a)/sizeof(*(a)))
 #define ENTRYSIZE(a)	(sizeof(*(a)))
 
-ArrayUsage( char *szItem, int items, int maxitems, int itemsize )
+int ArrayUsage( char *szItem, int items, int maxitems, int itemsize )
 {
 	float	percentage = maxitems ? items * 100.0 / maxitems : 0.0;
 
@@ -654,7 +654,7 @@ ArrayUsage( char *szItem, int items, int maxitems, int itemsize )
 	return items * itemsize;
 }
 
-GlobUsage( char *szItem, int itemstorage, int maxstorage )
+int GlobUsage( char *szItem, int itemstorage, int maxstorage )
 {
 	float	percentage = maxstorage ? itemstorage * 100.0 / maxstorage : 0.0;
 

@@ -92,6 +92,10 @@ typedef enum {qfalse, qtrue}	qboolean;
 #include "l_utils.h"
 #endif //QUAKE
 
+#ifdef __SDL2__
+#include "l_precomp.h"
+#endif
+
 //#define DEBUG_EVAL
 
 #define MAX_DEFINEPARMS			128
@@ -3225,4 +3229,3 @@ void PC_CheckOpenSourceHandles(void)
 		} //end if
 	} //end for
 } //end of the function PC_CheckOpenSourceHandles
-

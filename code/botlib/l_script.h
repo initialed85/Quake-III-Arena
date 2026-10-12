@@ -43,6 +43,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define QDECL
 #endif
 
+#ifndef QDECL
+#define QDECL
+#endif
 
 //script flags
 #define SCFL_NOERRORS				0x0001
@@ -243,5 +246,3 @@ void PS_SetBaseFolder(char *path);
 void QDECL ScriptError(script_t *script, char *str, ...);
 //print a script warning with filename and line number
 void QDECL ScriptWarning(script_t *script, char *str, ...);
-
-

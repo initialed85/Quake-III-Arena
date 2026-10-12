@@ -117,7 +117,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 //======================= MAC OS X SERVER DEFINES =====================
 
-#if defined(__MACH__) && defined(__APPLE__)
+#if defined(__MACH__) && defined(__APPLE__) && !defined(__SDL2__)
 
 #define MAC_STATIC
 
@@ -198,6 +198,28 @@ void Sys_PumpEvents( void );
 #define	CPUSTRING	"linux-alpha"
 #else
 #define	CPUSTRING	"linux-other"
+#endif
+
+#define	PATH_SEP '/'
+
+#endif
+
+//======================= SDL2 DEFINES =================================
+
+#ifdef __SDL2__
+
+#define	MAC_STATIC
+
+#ifdef __i386__
+#define	CPUSTRING	"sdl2-i386"
+#elif defined __axp__
+#define	CPUSTRING	"sdl2-alpha"
+#elif defined __arm64__
+#define	CPUSTRING	"sdl2-arm64"
+#elif defined __aarch64__
+#define	CPUSTRING	"sdl2-aarch64"
+#else
+#define	CPUSTRING	"sdl2-other"
 #endif
 
 #define	PATH_SEP '/'
@@ -795,4 +817,3 @@ void Info_NextPair( const char *(*s), char key[MAX_INFO_KEY], char value[MAX_INF
 #endif	// __cplusplus
 
 #endif	// __Q_SHARED_H
-

@@ -22,5 +22,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 //
 // trilib.h: header file for loading triangles from an Alias triangle file
 //
-void TRI_LoadPolysets( const char *filename, polyset_t **ppPSET, int *numpsets );
 
+#include "polyset.h"
+
+#ifdef __SDL2__
+#include "../code/sdl2/sdl2_shared.h"
+#endif
+
+void TRI_LoadPolysets( const char *filename, polyset_t **ppPSET, int *numpsets );

@@ -30,7 +30,13 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #if defined(MACOS_X)
 #include <netinet/in.h>
 #else
+#if defined(__SDL2__)
+#include <netinet/in.h>
+#else
+#if defined(_WIN32)
 #include <winsock.h>
+#endif
+#endif
 #endif
 #endif
 

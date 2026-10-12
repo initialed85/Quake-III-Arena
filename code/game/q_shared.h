@@ -324,6 +324,62 @@ static float LittleFloat (const float *l) { return FloatSwap(l); }
 
 #endif
 
+//======================= SDL2 DEFINES =================================
+
+// the mac compiler can't handle >32k of locals, so we
+// just waste space and make big arrays static...
+#ifdef __SDL2__
+
+// bk001205 - from Makefile
+#define stricmp strcasecmp
+
+#define	MAC_STATIC // bk: FIXME
+#define ID_INLINE inline
+
+#ifdef __i386__
+#define	CPUSTRING	"sdl2-i386"
+#elif defined __axp__
+#define	CPUSTRING	"sdl2-alpha"
+#elif defined __arm64__
+#define	CPUSTRING	"sdl2-arm64"
+#elif defined __arch64__
+#define	CPUSTRING	"sdl2-aarch64"
+#else
+#define	CPUSTRING	"sdl2-other"
+#endif
+
+#define	PATH_SEP '/'
+
+// bk001205 - try
+#ifdef Q3_STATIC
+#define	GAME_HARD_LINKED
+#define	CGAME_HARD_LINKED
+#define	UI_HARD_LINKED
+#define	BOTLIB_HARD_LINKED
+#endif
+
+#if !idppc
+inline static short BigShort( short l) { return ShortSwap(l); }
+#define LittleShort
+inline static int BigLong(int l) { return LongSwap(l); }
+#define LittleLong
+inline static float BigFloat(const float *l) { return FloatSwap(l); }
+#define LittleFloat
+#else
+#define BigShort
+inline static short LittleShort(short l) { return ShortSwap(l); }
+#define BigLong
+inline static int LittleLong (int l) { return LongSwap(l); }
+#define BigFloat
+inline static float LittleFloat (const float *l) { return FloatSwap(l); }
+#endif
+
+#endif
+
+#ifndef ID_INLINE
+#define ID_INLINE inline
+#endif
+
 //=============================================================
 
 typedef unsigned char 		byte;

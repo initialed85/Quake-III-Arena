@@ -34,6 +34,10 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #include <libc.h>
 #endif
 
+#ifdef __SDL2__
+#include <unistd.h>
+#endif
+
 #define	BASEDIRNAME	"quake"		// assumed to have a 2 or 3 following
 #define PATHSEPERATOR   '/'
 
@@ -178,7 +182,9 @@ UINT wm_BroadcastCommand = -1;
 void _printf( const char *format, ... ) {
 	va_list argptr;
   char text[4096];
+#ifdef WIN32
   ATOM a;
+#endif
 
 	va_start (argptr,format);
 	vsprintf (text, format, argptr);
@@ -398,8 +404,13 @@ void Q_getwd (char *out)
    _getcwd (out, 256);
    strcat (out, "\\");
 #else
+#if defined(__SDL2__)
+   getcwd (out, 256);
+   strcat (out, "/");
+#else
    getwd (out);
    strcat (out, "/");
+#endif
 #endif
 
    while ( out[i] != 0 )

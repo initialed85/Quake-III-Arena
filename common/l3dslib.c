@@ -37,6 +37,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define TRI_FACEL1    0x4120
 
 #define MAXVERTS	2000
+#define MAXTRIANGLES 4096
 
 typedef struct {
 	int	v[4];
@@ -297,4 +298,3 @@ void Load3DSTriangleList (char *filename, triangle_t **pptri, int *numtriangles)
 
 	fclose (input);
 }
-

@@ -988,4 +988,3 @@ int main (int argc, char **argv)
 	Log_Close();						//close the log file
 	return 0;
 } //end of the function main
-

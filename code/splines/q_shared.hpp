@@ -216,8 +216,40 @@ void Sys_PumpEvents( void );
 
 #endif
 
-//=============================================================
+//======================= SDL2 DEFINES =================================
 
+#ifdef __SDL2__
+
+// bk001205 - from Makefile
+#define stricmp strcasecmp
+
+#define	MAC_STATIC // bk: FIXME
+
+#ifdef __i386__
+#define	CPUSTRING	"sdl2-i386"
+#elif defined __axp__
+#define	CPUSTRING	"sdl2-alpha"
+#elif defined __arm64__
+#define	CPUSTRING	"sdl2-arm64"
+#elif defined __aarch64__
+#define	CPUSTRING	"sdl2-aarch64"
+#else
+#define	CPUSTRING	"sdl2-other"
+#endif
+
+#define	PATH_SEP '/'
+
+// bk001205 - try
+#ifdef Q3_STATIC
+#define	GAME_HARD_LINKED
+#define	CGAME_HARD_LINKED
+#define	UI_HARD_LINKED
+#define	BOTLIB_HARD_LINKED
+#endif
+
+#endif
+
+//=============================================================
 
   
 typedef enum {qfalse, qtrue}	qboolean;
@@ -807,4 +839,3 @@ void Info_NextPair( const char *(*s), char key[MAX_INFO_KEY], char value[MAX_INF
 #endif	// __cplusplus
 
 #endif	// __Q_SHARED_H
-

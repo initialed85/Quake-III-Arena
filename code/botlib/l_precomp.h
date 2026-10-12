@@ -29,6 +29,8 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
  *
  *****************************************************************************/
 
+#include "l_script.h"
+ 
 #ifndef MAX_PATH
 	#define MAX_PATH			MAX_QPATH
 #endif
@@ -52,6 +54,9 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 #define QDECL
 #endif
 
+#ifdef __SDL2__
+#define QDECL
+#endif
 
 #define DEFINE_FIXED			0x0001
 
@@ -156,6 +161,10 @@ void QDECL SourceError(source_t *source, char *str, ...);
 //print a source warning
 void QDECL SourceWarning(source_t *source, char *str, ...);
 
+#ifdef __SDL2__
+#include "../game/q_shared.h"
+#endif
+
 #ifdef BSPC
 // some of BSPC source does include game/q_shared.h and some does not
 // we define pc_token_s pc_token_t if needed (yes, it's ugly)
@@ -171,6 +180,10 @@ typedef struct pc_token_s
 } pc_token_t;
 #endif //!_Q_SHARED_H
 #endif //BSPC
+
+#ifdef __SDL2__
+#undef BSPC
+#endif
 
 //
 int PC_LoadSourceHandle(const char *filename);

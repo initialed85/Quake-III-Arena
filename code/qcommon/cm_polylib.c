@@ -272,11 +272,11 @@ CopyWinding
 */
 winding_t	*CopyWinding (winding_t *w)
 {
-	int			size;
+	intptr_t			size;
 	winding_t	*c;
 
 	c = AllocWinding (w->numpoints);
-	size = (int)((winding_t *)0)->p[w->numpoints];
+	size = (intptr_t)((winding_t *)0)->p[w->numpoints];
 	Com_Memcpy (c, w, size);
 	return c;
 }
@@ -733,5 +733,3 @@ void	AddWindingToConvexHull( winding_t *w, winding_t **hull, vec3_t normal ) {
 	*hull = w;
 	Com_Memcpy( w->p, hullPoints, numHullPoints * sizeof(vec3_t) );
 }
-
-
