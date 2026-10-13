@@ -633,6 +633,12 @@ static void Upload32( unsigned *data,
 	} else {
 		internalFormat = 3;
 	}
+#ifdef __EMSCRIPTEN__
+	// WebGL 1 has no sized internal formats: GL_RGB8, GL_RGB5, GL_RGBA4 and the
+	// S3TC enums are INVALID_VALUE in texImage2D, so every texture upload fails
+	// and nothing is drawn. The upload format is what the texture becomes.
+	internalFormat = GL_RGBA;
+#endif
 	// copy or resample data as appropriate for first MIP level
 	if ( ( scaled_width == width ) && 
 		( scaled_height == height ) ) {
@@ -743,6 +749,13 @@ image_t *R_CreateImage( const char *name, const byte *pic, int width, int height
 
 	image = tr.images[tr.numImages] = ri.Hunk_Alloc( sizeof( image_t ), h_low );
 	image->texnum = 1024 + tr.numImages;
+#ifdef __EMSCRIPTEN__
+	// Q3 invents texture names (1024 + image index) and relies on a desktop GL
+	// driver auto-creating the texture object on bind. WebGL has no auto-create:
+	// binding an unknown name unbinds, so every texImage2D afterwards fails with
+	// GL_INVALID_OPERATION and nothing is drawn. Generate real GL names here.
+	qglGenTextures(1, &image->texnum);
+#endif
 	tr.numImages++;
 
 	image->mipmap = mipmap;

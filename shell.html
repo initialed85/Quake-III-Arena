@@ -1,0 +1,134 @@
+<!doctype html>
+<html lang="en-us">
+  <head>
+    <meta charset="utf-8" />
+    <meta content="text/html; charset=utf-8" http-equiv="Content-Type" />
+    <title>Quake III Arena</title>
+    <script>
+      // Headless Chrome does not deliver Runtime.consoleAPICalled / Log.entryAdded to a
+      // page target over CDP, so buffer the page's console output here and let the test
+      // harness drain it with Runtime.evaluate. Timestamps are seconds from page load.
+      window.__q3log = [];
+      (function () {
+        var t0 = performance.now();
+        var orig = console.log.bind(console);
+        console.log = function () {
+          var line = Array.prototype.slice.call(arguments).map(String).join(" ");
+          window.__q3log.push("[" + ((performance.now() - t0) / 1000).toFixed(1) + "s] " + line);
+          if (window.__q3log.length > 5000) {
+            window.__q3log.splice(0, 1000);
+          }
+          orig(line);
+        };
+      })();
+    </script>
+  </head>
+  <body onload="javascript: onLoad();" onresize="javascript: onResize();" style="padding: 0px; margin: 0px">
+    <div class="emscripten_border" style="padding: 0px; margin: 0px">
+      <canvas
+        class="emscripten"
+        id="canvas"
+        oncontextmenu="event.preventDefault()"
+        tabindex="-1"
+        style="margin: 0px; padding: 0px"
+      ></canvas>
+    </div>
+    <script>
+      const canvasElement = document.getElementById("canvas");
+
+      canvasElement.addEventListener("webglcontextlost", (e) => {
+        alert("WebGL context lost. You will need to reload the page.");
+        e.preventDefault();
+      });
+
+      //
+      // Fit the canvas to the window while keeping the requested aspect ratio.
+      // Quake 3 renders at r_customwidth / r_customheight, so the aspect ratio
+      // is whatever we ask for; 4:3 is the default for r_mode standard modes.
+      //
+
+      const desiredAspectRatio = 4.0 / 3.0;
+
+      const windowW = window.innerWidth;
+      const windowH = window.innerHeight;
+
+      const heightFromWidth = windowW / desiredAspectRatio;
+      const widthFromHeight = windowH * desiredAspectRatio;
+
+      let width, height;
+
+      if (heightFromWidth < windowH) {
+        width = windowW;
+        height = heightFromWidth;
+      } else {
+        width = widthFromHeight;
+        height = windowH;
+      }
+
+      width = Math.round(width);
+      height = Math.round(height);
+
+      const onLoadOrResize = () => {
+        canvasElement.width = width;
+        canvasElement.height = height;
+      };
+
+      const onLoad = () => {
+        onLoadOrResize();
+      };
+
+      const onResize = () => {
+        onLoadOrResize();
+      };
+
+      //
+      // Command line: URL query parameters become engine arguments.
+      //   ?+connect=server:27960&+map=q3dm17&r_customwidth=640
+      // Keys and values are split on spaces, so "+connect server:27960" works.
+      //
+
+      let arguments = [];
+
+      URL.parse(window.location.href.replaceAll("+", "%2b"))?.searchParams?.forEach((v, k) => {
+        arguments.push(...k.split(" "));
+        arguments.push(...v.split(" "));
+      });
+
+      arguments = arguments.filter((x) => x.trim().length);
+
+      // r_mode -1 is the only mode that honours r_customwidth / r_customheight.
+      // The canvas is sized to the window, so ask the engine to match it.
+      // Each engine argument group is separated by '+', so these have to be
+      // separate 'set' commands: a trailing '-r_mode -1' after '+devmap map'
+      // is swallowed by the devmap command line.
+      if (!arguments.includes("-r_mode")) {
+        arguments.push("+set r_mode -1");
+      }
+
+      if (!arguments.includes("-r_customwidth")) {
+        arguments.push("+set r_customwidth " + width);
+      }
+
+      if (!arguments.includes("-r_customheight")) {
+        arguments.push("+set r_customheight " + height);
+      }
+
+      arguments = arguments.map((x) => x.toString());
+
+      console.log(`arguments: ${JSON.stringify(arguments)}`);
+
+      var Module = {
+        print(...e) {
+          console.log(...e);
+        },
+        printErr(...e) {
+          console.warn(...e);
+        },
+        canvas: canvasElement,
+        arguments: arguments,
+      };
+    </script>
+
+    {{{ SCRIPT }}}
+  </body>
+</html>

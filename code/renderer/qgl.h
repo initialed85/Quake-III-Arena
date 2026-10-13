@@ -176,6 +176,31 @@ extern	void ( APIENTRY * qglUnlockArraysEXT) (void);
 
 #include "qgl_linked.h"
 
+#ifdef __EMSCRIPTEN__
+// WebGL has no draw-buffer state and Emscripten's legacy GL emulation aborts on
+// glDrawBuffer. Q3 only uses RB_DRAW_BUFFER to pick GL_BACK / GL_FRONT, which
+// WebGL does not model, so the call is dropped.
+void Ems_GLDrawBufferNoop( GLenum mode );
+#define qglDrawBuffer Ems_GLDrawBufferNoop
+// Emscripten's legacy GL emulation has no glMultiTexCoord2fARB, so
+// SDL_GL_GetProcAddress returns 0. GLimp_InitExtensions installs this shim into
+// the qglMultiTexCoord2fARB pointer. It writes the coordinate through the client
+// active texture, which is where the emulation reads texcoords from.
+void Ems_MultiTexCoord2fARB( GLenum texture, GLfloat s, GLfloat t );
+// GL_TEXTURE_BORDER_COLOR is not a WebGL texParameter name. Q3 sets it once in
+// R_InitFogGrid, and the source comment there says clamp-to-edge is what it
+// wants, so the call is dropped.
+void Ems_TexParameterfv( GLenum target, GLenum pname, const GLfloat *params );
+#define qglTexParameterfv Ems_TexParameterfv
+// GL_CLAMP is not a WebGL wrap mode. Q3 passes it for dlight, fog and scratch
+// images; GL_CLAMP_TO_EDGE is the GL 1.2 equivalent the source comments already
+// describe, so every GL_CLAMP use becomes clamp-to-edge.
+#ifdef GL_CLAMP
+#undef GL_CLAMP
+#endif
+#define GL_CLAMP GL_CLAMP_TO_EDGE
+#endif
+
 #elif !defined( _WIN32 ) && !defined(MACOS_X) && !defined( __linux__ ) && !defined( __FreeBSD__ ) // rb010123
 
 #include "qgl_linked.h"

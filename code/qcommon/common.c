@@ -2422,7 +2422,15 @@ void Com_Init( char *commandLine ) {
 	//
 	// init commands and vars
 	//
+#ifdef __EMSCRIPTEN__
+	// The browser paces Com_Frame with requestAnimationFrame, so the engine must
+	// not spin in Com_Frame's event loop waiting for minMsec of wall-clock time.
+	// emscripten_get_now advances far slower than wall-clock inside a rAF
+	// callback, so the spin never finishes and the game stalls at frame 0.
+	com_maxfps = Cvar_Get ("com_maxfps", "0", CVAR_ARCHIVE);
+#else
 	com_maxfps = Cvar_Get ("com_maxfps", "85", CVAR_ARCHIVE);
+#endif
 	com_blood = Cvar_Get ("com_blood", "1", CVAR_ARCHIVE);
 
 	com_developer = Cvar_Get ("developer", "0", CVAR_TEMP );
@@ -2643,16 +2651,12 @@ void Com_Frame( void ) {
 	int		msec, minMsec;
 	static int	lastTime;
 	int key;
- 
+
 	int		timeBeforeFirstEvents;
 	int           timeBeforeServer;
 	int           timeBeforeEvents;
 	int           timeBeforeClient;
 	int           timeAfter;
-  
-
-
-
 
 	if ( setjmp (abortframe) ) {
 		return;			// an ERR_DROP was thrown
@@ -2708,6 +2712,16 @@ void Com_Frame( void ) {
 	// mess with msec if needed
 	com_frameMsec = msec;
 	msec = Com_ModifyMsec( msec );
+
+	// com_msecprobe N: the server advances sv.time by msec, so a zero msec freezes
+	// serverTime and every snapshot the cgame reads carries the same time.
+	{
+		static int cmp;
+		int rate = (int)Cvar_VariableValue( "com_msecprobe" );
+		if ( rate && ++cmp % rate == 0 ) {
+			Com_Printf( "MSEC frame %i msec %i frameTime %i minMsec %i\n", cmp, msec, com_frameTime, minMsec );
+		}
+	}
 
 	//
 	// server side

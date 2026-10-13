@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // cl_cgame.c  -- client system interaction with client game
 
 #include "client.h"
+#include "../qcommon/vm_local.h"
 
 #include "../game/botlib.h"
 
@@ -108,6 +109,15 @@ CL_GetCurrentSnapshotNumber
 void	CL_GetCurrentSnapshotNumber( int *snapshotNumber, int *serverTime ) {
 	*snapshotNumber = cl.snap.messageNum;
 	*serverTime = cl.snap.serverTime;
+	// cl_cgsyscalls N: the cgame can only read snapshots in (processedSnapshotNum, latest].
+	// If messageNum never exceeds the gamestate's serverMessageSequence, CG_ReadNextSnapshot
+	// returns NULL and cg.snap stays NULL, so no 3D view is drawn.
+	{
+		int rate = (int)Cvar_VariableValue( "cl_cgsyscalls" );
+		if ( rate ) {
+			Com_Printf( "SNAPNUM %i serverTime %i parsed %i\n", cl.snap.messageNum, cl.snap.serverTime, cl.parseEntitiesNum );
+		}
+	}
 }
 
 /*
@@ -415,6 +425,22 @@ The cgame module is making a system call
 #define	VMA(x) VM_ArgPtr(args[x])
 #define	VMF(x)	((float *)args)[x]
 int CL_CgameSystemCalls( int *args ) {
+	static int hist[128], histTotal, cgScanDone, cgPrevWant, cgPrevTime, cgProbe;
+	// cl_cgsyscalls N: print the cgame VM syscall histogram every N traps.
+	// The gate for drawing the 3D view is CG_R_RENDERSCENE (44); if it stays 0
+	// the cgame is stuck in the loading screen and nothing is rendered.
+	{
+		int rate = (int)Cvar_VariableValue( "cl_cgsyscalls" );
+		if ( args[0] >= 0 && args[0] < 128 ) hist[args[0]]++;
+		if ( rate && ++histTotal % rate == 0 ) {
+			int		o;
+			Com_Printf( "CGHIST %i", histTotal );
+			for ( o = 0; o < 128; o++ ) {
+				if ( hist[o] ) Com_Printf( " %i:%i", o, hist[o] );
+			}
+			Com_Printf( "\n" );
+		}
+	}
 	switch( args[0] ) {
 	case CG_PRINT:
 		Com_Printf( "%s", VMA(1) );
@@ -589,8 +615,46 @@ int CL_CgameSystemCalls( int *args ) {
 		CL_GetGameState( VMA(1) );
 		return 0;
 	case CG_GETCURRENTSNAPSHOTNUMBER:
+	{
+		int		prevWant = cgPrevWant, prevTime = cgPrevTime;
+		int		check = (int)Cvar_VariableValue( "cl_cgsyscalls" );
+		cgPrevWant = *(int *)VMA(1);
+		cgPrevTime = *(int *)VMA(2);
 		CL_GetCurrentSnapshotNumber( VMA(1), VMA(2) );
+		// cl_cgsyscalls N: CG_ReadNextSnapshot loops on `cgs.processedSnapshotNum <
+		// cg.latestSnapshotNum`, and cg.latestSnapshotNum comes from this write. Show what the
+		// cgame's two words contain after the engine has written them.
+		if ( check && cgProbe < 12 ) {
+			cgProbe++;
+			Com_Printf( "SNAPWRITE off %i %i base %i mask %i got %i %i want %i %i\n",
+				args[1], args[2], (int)(uintptr_t)cgvm->dataBase, cgvm->dataMask,
+				*(int *)VMA(1), *(int *)VMA(2), cl.snap.messageNum, cl.snap.serverTime );
+		}
+		// cl_cgsyscalls N: CG_ProcessSnapshots assigns cg.latestSnapshotNum from this write
+		// AFTER the syscall returns, so the previous pair is the anchor for cg.snap (+2 words)
+		// and cg.nextSnap (+3 words). Scan once; a full data segment walk is too slow to run
+		// every frame in the browser.
+		if ( (int)Cvar_VariableValue( "cl_cgsyscalls" ) && !cgScanDone
+			&& prevWant > 0 && prevTime > 0 && histTotal >= (int)Cvar_VariableValue( "cl_cgsyscalls" ) ) {
+			vm_t	*vm = cgvm;
+			int		*base = (int *)vm->dataBase;
+			int		words = (vm->dataMask >> 2) + 1;
+			int		o, hits = 0;
+
+			cgScanDone = 1;
+			Com_Printf( "SNAPPTR prev %i %i cur %i %i clSnap %i %i words %i\n", prevWant, prevTime, cgPrevWant, cgPrevTime,
+				cl.snap.messageNum, cl.snap.serverTime, words );
+			for ( o = 8; o + 3 < words && hits < 8; o++ ) {
+				if ( base[o] == cgPrevWant && base[o+1] == cgPrevTime ) {
+					Com_Printf( "CGSCAN word %i clientFrame %i clientNum %i loading %i latestNum %i latestTime %i snap %i nextSnap %i\n",
+						o, base[o-7], base[o-6], base[o-4], base[o], base[o+1], base[o+2], base[o+3] );
+					hits++;
+				}
+			}
+			Com_Printf( "CGSCAN hits %i\n", hits );
+		}
 		return 0;
+	}
 	case CG_GETSNAPSHOT:
 		return CL_GetSnapshot( args[1], VMA(2) );
 	case CG_GETSERVERCOMMAND:
@@ -745,6 +809,14 @@ void CL_InitCGame( void ) {
 	// init for this gamestate
 	// use the lastExecutedServerCommand instead of the serverCommandSequence
 	// otherwise server commands sent just before a gamestate are dropped
+	// cl_cgsyscalls N: CG_Init seeds cgs.processedSnapshotNum with serverMessageSequence.
+	// CG_ReadNextSnapshot only reads snapshots above it, so if this is at or above the
+	// current snapshot number the cgame never calls CG_GETSNAPSHOT and cg.snap stays NULL.
+	if ( (int)Cvar_VariableValue( "cl_cgsyscalls" ) ) {
+		Com_Printf( "CGINIT msgSeq %i lastExecCmd %i clientNum %i snapMsgNum %i gs %.60s\n",
+			clc.serverMessageSequence, clc.lastExecutedServerCommand, clc.clientNum, cl.snap.messageNum,
+			cl.gameState.stringData );
+	}
 	VM_Call( cgvm, CG_INIT, clc.serverMessageSequence, clc.lastExecutedServerCommand, clc.clientNum );
 
 	// we will send a usercmd this frame, which

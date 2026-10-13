@@ -22,6 +22,7 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 // sv_game.c -- interface to the game dll
 
 #include "server.h"
+#include "../qcommon/vm_local.h"
 
 #include "../game/botlib.h"
 
@@ -315,10 +316,40 @@ The module is making a system call
 #define	VMF(x)	((float *)args)[x]
 
 int SV_GameSystemCalls( int *args ) {
+	// sv_gametraphist N: print a histogram of game system trap numbers every N calls.
+	// The shipped qvm's trap numbering is what this measures; the switch below is the
+	// numbering this source implements.
+	static int ghist[512], ghistTotal, ghistRate;
+
+	ghistRate = (int)Cvar_VariableValue( "sv_gametraphist" );
+	if ( ghistRate && args[0] >= 0 && args[0] < 512 ) {
+		ghist[args[0]]++;
+		if ( ++ghistTotal % ghistRate == 0 ) {
+			int o;
+			Com_Printf( "GHIST %i", ghistTotal );
+			for ( o = 0; o < 512; o++ ) {
+				if ( ghist[o] ) Com_Printf( " %i:%i", o, ghist[o] );
+			}
+			Com_Printf( "\n" );
+		}
+	}
+
 	switch( args[0] ) {
-	case G_PRINT:
-		Com_Printf( "%s", VMA(1) );
+	case G_PRINT: {
+		const char	*vmstr = VMA(1);
+		int			vmstrlen;
+		// sv_gametraphist N: the game VM's G_PRINT lines (ClientBegin,
+		// ClientUserinfoChanged, ...) are absent in the wasm build. Measure what the
+		// VM string pointer actually resolves to.
+		if ( ghistRate ) {
+			vmstrlen = (int)strlen( vmstr );
+			Com_Printf( "GPRINT ptr %i mask %i off %i len %i [%.48s]\n",
+				(int)( (char *)vmstr - (char *)gvm->dataBase ), gvm->dataMask,
+				args[1], vmstrlen, vmstr );
+		}
+		Com_Printf( "%s", vmstr );
 		return 0;
+	}
 	case G_ERROR:
 		Com_Error( ERR_DROP, "%s", VMA(1) );
 		return 0;
@@ -503,8 +534,13 @@ int SV_GameSystemCalls( int *args ) {
 		botlib_export->aas.AAS_EntityInfo( args[1], VMA(2) );
 		return 0;
 
-	case BOTLIB_AAS_INITIALIZED:
-		return botlib_export->aas.AAS_Initialized();
+	case BOTLIB_AAS_INITIALIZED: {
+		int		init = botlib_export->aas.AAS_Initialized();
+		// sv_gametraphist N: AI_StartFrame returns before the entity update loop when
+		// this reports 0, which is the only path that leaves BOTLIB_UpdateEntity at zero.
+		if ( ghistRate ) Com_Printf( "AASINIT ret %i\n", init );
+		return init;
+	}
 	case BOTLIB_AAS_PRESENCE_TYPE_BOUNDING_BOX:
 		botlib_export->aas.AAS_PresenceTypeBoundingBox( args[1], VMA(2), VMA(3) );
 		return 0;
@@ -861,6 +897,19 @@ int SV_GameSystemCalls( int *args ) {
 		return FloatAsInt( ceil( VMF(1) ) );
 
 
+#ifdef __EMSCRIPTEN__
+	// The shipped 1.32 .qvm files (gamedate Mar 14 2000) are built against the
+	// original g_public.h, whose EA series has entries this GPL source dropped
+	// (be_ea.c implements EA_Tell, EA_UseItem, EA_DropItem, EA_UseInv, EA_DropInv,
+	// EA_Walk - six functions with no numbers in g_public.h). The qvm's EA tail is
+	// therefore shifted and nothing here numbered 425-427 matches. Native never
+	// executes these traps, so ERR_DROP is browser-fatal: a longjmp out of the rAF
+	// callback ends the main loop. Log and continue instead of dropping the server.
+	case 425:
+	case 426:
+		Com_Printf( "unhandled game trap %i\n", args[0] );
+		return 0;
+#endif
 	default:
 		Com_Error( ERR_DROP, "Bad game system trap: %i", args[0] );
 	}

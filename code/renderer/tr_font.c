@@ -398,7 +398,14 @@ void RE_RegisterFont(const char *fontName, int pointSize, fontInfo_t *font) {
 	}
 
 #ifndef BUILD_FREETYPE
-    ri.Printf(PRINT_ALL, "RE_RegisterFont: FreeType code not available\n");
+    // The GPL release ships without FreeType. CG and UI register several fonts at
+    // init, so printing per call spams the console; say it once.
+    {
+		static int freetypeWarned;
+		if (!freetypeWarned++) {
+			ri.Printf(PRINT_ALL, "RE_RegisterFont: FreeType code not available\n");
+		}
+    }
 #else
   if (ftLibrary == NULL) {
     ri.Printf(PRINT_ALL, "RE_RegisterFont: FreeType not initialized.\n");

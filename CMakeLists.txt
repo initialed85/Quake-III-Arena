@@ -95,6 +95,12 @@ if (EMSCRIPTEN)
 
   set(DRY_LDFLAGS ${DRY_LDFLAGS}
     "-sUSE_SDL=2" # link the emscripten-provided SDL2
+    # Q3's renderer is fixed-function multitexture. WebGL has no glTexEnvf,
+    # glPushMatrix, glLoadMatrixf, glOrtho, glPolygonMode, glAlphaFunc,
+    # glClipPlane. Emscripten's legacy GL emulation supplies all of them.
+    "-sLEGACY_GL_EMULATION=1"
+    "-sGL_UNSAFE_OPTS=0"
+    "--error-limit=0" # report every undefined GL symbol, not just the first 10
     "-sINITIAL_MEMORY=256MB"
     "-sTOTAL_STACK=64MB"
     "-sSTACK_SIZE=8MB"
@@ -332,6 +338,11 @@ set(QUAKE3_SOURCES
     code/sdl2/sdl2_sys.c
 )
 
+# Emscripten's legacy GL emulation lacks glArrayElement and glCallList
+if (EMSCRIPTEN)
+  list(APPEND QUAKE3_SOURCES code/sdl2/sdl2_glemu.c)
+endif()
+
 add_library(Quake3Lib ${QUAKE3_SOURCES})
 
 # botlib gates its own includes behind -DBOTLIB (see code/unix/Makefile DO_BOT_CC)
@@ -404,5 +415,12 @@ target_compile_options(Quake3 PUBLIC ${DRY_CFLAGS})
 target_link_options(Quake3 PUBLIC)
 
 if (EMSCRIPTEN)
-  set_target_properties(Quake3 PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_SOURCE_DIR}/baseq3@./baseq3")
+  # assets-wasm/baseq3 is the per-map dep manifest extracted by
+  # tools/build-asset-dir.sh (~29 MB for one arena map). Preloading all of
+  # baseq3 would be 457 MB. Without it, preload pak2 so the VMs exist.
+  if (EXISTS ${CMAKE_SOURCE_DIR}/assets-wasm/baseq3)
+    set_target_properties(Quake3 PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_SOURCE_DIR}/assets-wasm/baseq3@./baseq3 -sEXPORTED_RUNTIME_METHODS=FS,ccall,cwrap")
+  else()
+    set_target_properties(Quake3 PROPERTIES LINK_FLAGS "--preload-file ${CMAKE_SOURCE_DIR}/baseq3/pak2.pk3@./baseq3/pak2.pk3 -sEXPORTED_RUNTIME_METHODS=FS,ccall,cwrap")
+  endif()
 endif()

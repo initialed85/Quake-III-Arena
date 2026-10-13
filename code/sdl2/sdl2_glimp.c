@@ -82,6 +82,11 @@ static void GLimp_InitExtensions( void )
 			SDL_GL_GetProcAddress("glActiveTextureARB");
 		qglClientActiveTextureARB = (void (APIENTRY *)(GLenum))
 			SDL_GL_GetProcAddress("glClientActiveTextureARB");
+		if (!qglMultiTexCoord2fARB) {
+#ifdef __EMSCRIPTEN__
+			qglMultiTexCoord2fARB = Ems_MultiTexCoord2fARB;
+#endif
+		}
 	}
 
 	if (r_ext_compiled_vertex_array->integer) {
@@ -119,6 +124,15 @@ static void GLimp_InitExtensions( void )
 		qglLockArraysEXT = NULL;
 		qglUnlockArraysEXT = NULL;
 	}
+
+#ifdef __EMSCRIPTEN__
+	// r_primitives 0 picks glDrawElements when qglLockArraysEXT exists, otherwise
+	// the strip path that calls glArrayElement. Emscripten's legacy GL emulation
+	// has no glArrayElement, so force r_primitives 3: R_ArrayElementDiscrete emits
+	// colour, texcoord and vertex explicitly, using only entry points the
+	// emulation provides.
+	ri.Cvar_Set("r_primitives", "3");
+#endif
 }
 
 /*
@@ -147,7 +161,21 @@ static qboolean GLimp_CreateWindow( void )
 	SDL_GL_SetAttribute(SDL_GL_DEPTH_SIZE, depthbits ? depthbits : 24);
 	SDL_GL_SetAttribute(SDL_GL_STENCIL_SIZE, stencilbits);
 	SDL_GL_SetAttribute(SDL_GL_DOUBLEBUFFER, 1);
+#ifdef __EMSCRIPTEN__
+	// WebGL has no compatibility profile. Request an ES profile so Emscripten
+	// builds a WebGL context; the legacy GL emulation is enabled in the link
+	// flags, which is what the Q3 fixed-function renderer runs on.
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_ES);
+	// Emscripten's EGL maps EGL_CONTEXT_CLIENT_VERSION to the WebGL version:
+	// GLES2 (version 2) is WebGL 1. SDL passes SDL_max(major_version, 1), so a
+	// major version of 1 asks for GLES1, which Emscripten rejects with
+	// EGL_BAD_CONFIG. Requesting 2 gets a working WebGL 1 context.
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MAJOR_VERSION, 2);
+	SDL_GL_SetAttribute(SDL_GL_CONTEXT_MINOR_VERSION, 0);
+	SDL_GL_SetAttribute(SDL_GL_ACCELERATED_VISUAL, 1);
+#else
 	SDL_GL_SetAttribute(SDL_GL_CONTEXT_PROFILE_MASK, SDL_GL_CONTEXT_PROFILE_COMPATIBILITY);
+#endif
 
 	if (r_fullscreen->integer) {
 		flags |= SDL_WINDOW_FULLSCREEN;
@@ -251,9 +279,21 @@ static qboolean GLimp_CreateWindow( void )
 		SDL_GetWindowPosition(sdlWindow, &x, &y);
 		SDL_GetWindowSize(sdlWindow, &w, &h);
 		SDL_GetCurrentDisplayMode(disp, &dm);
-		ri.Printf(PRINT_ALL, "WINDOW: display %i at (%i,%i) size %ix%i, display mode %ix%i@%iHz, flags 0x%x, focused=%i\n",
-			disp, x, y, w, h, dm.w, dm.h, dm.refresh_rate, SDL_GetWindowFlags(sdlWindow),
+		ri.Printf(PRINT_ALL, "WINDOW: vid %ix%i, display %i at (%i,%i) size %ix%i, display mode %ix%i@%iHz, flags 0x%x, focused=%i\n",
+			glConfig.vidWidth, glConfig.vidHeight, disp, x, y, w, h,
+			dm.w, dm.h, dm.refresh_rate, SDL_GetWindowFlags(sdlWindow),
 			(SDL_GetWindowFlags(sdlWindow) & SDL_WINDOW_INPUT_FOCUS) ? 1 : 0);
+
+		// The canvas is the framebuffer. SDL can clamp the requested size to the
+		// display bounds, and the browser can resize the canvas. Everything that
+		// sizes the viewport (cg.refdef, screenshots, r_mode reporting) reads
+		// glConfig.vidWidth / vidHeight, so they have to be the real window size.
+		if (w != glConfig.vidWidth || h != glConfig.vidHeight) {
+			glConfig.vidWidth = w;
+			glConfig.vidHeight = h;
+			glConfig.windowAspect = 0.0f;
+			ri.Printf(PRINT_ALL, "Window resized to %ix%i\n", w, h);
+		}
 	}
 
 	SDL_RaiseWindow(sdlWindow);
@@ -358,11 +398,87 @@ void Sys_ShutdownWindow( void )
 
 /*
 ===============
+GLimp_PixelProbe
+
+Assert on pixels, not on vibes. Reads the centre of the drawing buffer and prints
+mean RGB, distinct colours, and pure black / white percentages. r_pixelprobe is
+the frame interval. This is the pixel check that works in the browser build:
+Emscripten creates the WebGL context inside the wasm module, so nothing on the
+page can reach it, and the CDP screenshot only shows the composited canvas.
+
+Called before the buffer swap, so the drawing buffer still holds this frame.
+===============
+*/
+#define PIXELPROBE_SIZE 48
+
+static void GLimp_PixelProbe( void )
+{
+	static cvar_t	*pixelprobe;
+	static int		probeFrame;
+	static byte		probePixels[PIXELPROBE_SIZE * PIXELPROBE_SIZE * 4];
+	int		x, y, i, n, distinct, white, black;
+	long	s[3];
+	int		counts[PIXELPROBE_SIZE * PIXELPROBE_SIZE];
+
+	if (!pixelprobe) {
+		pixelprobe = ri.Cvar_Get("r_pixelprobe", "0", CVAR_TEMP);
+	}
+
+	if (!pixelprobe->integer || !sdlWindow) {
+		return;
+	}
+
+	if (probeFrame++ % pixelprobe->integer) {
+		return;
+	}
+
+	x = (glConfig.vidWidth - PIXELPROBE_SIZE) / 2;
+	y = (glConfig.vidHeight - PIXELPROBE_SIZE) / 2;
+	if (x < 0 || y < 0) {
+		return;
+	}
+
+	qglPixelStorei(GL_PACK_ALIGNMENT, 1);
+	qglReadPixels(x, y, PIXELPROBE_SIZE, PIXELPROBE_SIZE, GL_RGBA, GL_UNSIGNED_BYTE, probePixels);
+
+	n = PIXELPROBE_SIZE * PIXELPROBE_SIZE;
+	s[0] = s[1] = s[2] = 0;
+	distinct = 0;
+	white = black = 0;
+	Com_Memset(counts, 0, sizeof(counts));
+
+	for (i = 0; i < n; i++) {
+		byte r = probePixels[i * 4], g = probePixels[i * 4 + 1], b = probePixels[i * 4 + 2];
+		int key = (r >> 2) * 4096 + (g >> 2) * 64 + (b >> 2);
+		s[0] += r;
+		s[1] += g;
+		s[2] += b;
+		if (r > 250 && g > 250 && b > 250) {
+			white++;
+		}
+		if (r < 5 && g < 5 && b < 5) {
+			black++;
+		}
+		if (!counts[key]++) {
+			distinct++;
+		}
+	}
+
+	ri.Printf(PRINT_ALL, "PIXELPROBE frame %i centre %i,%i %ix%i mean %i,%i,%i "
+		"distinct %i white %i%% black %i%%\n",
+		probeFrame - 1, x, y, PIXELPROBE_SIZE, PIXELPROBE_SIZE,
+		s[0] / n, s[1] / n, s[2] / n, distinct, white * 100 / n, black * 100 / n);
+}
+
+/*
+===============
 GLimp_EndFrame
 ===============
 */
 void GLimp_EndFrame( void )
 {
+	GLimp_PixelProbe();
+
 	if (sdlWindow) {
 		SDL_GL_SwapWindow(sdlWindow);
 	}

@@ -922,6 +922,14 @@ const void	*RB_DrawSurfs( const void *data ) {
 	backEnd.refdef = cmd->refdef;
 	backEnd.viewParms = cmd->viewParms;
 
+#ifdef __EMSCRIPTEN__
+	{
+		static int dsframes;
+		if ( ++dsframes % 20 == 1 ) {
+		}
+	}
+#endif
+
 	RB_RenderDrawSurfList( cmd->drawSurfs, cmd->numDrawSurfs );
 
 	return (const void *)(cmd + 1);

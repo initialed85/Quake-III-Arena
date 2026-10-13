@@ -4,3 +4,12 @@ build/**
 build-asan/
 build-debug/
 build-native/
+
+emsdk/
+assets-wasm/
+build-wasm/
+
+tools/__pycache__
+tools/*.pyc
+
+emsdk

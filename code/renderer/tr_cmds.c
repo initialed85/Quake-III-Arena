@@ -193,6 +193,7 @@ render thread if needed.
 */
 void *R_GetCommandBuffer( int bytes ) {
 	renderCommandList_t	*cmdList;
+	static int		cmdDropped;
 
 	cmdList = &backEndData[tr.smpFrame]->commands;
 
@@ -202,6 +203,7 @@ void *R_GetCommandBuffer( int bytes ) {
 			ri.Error( ERR_FATAL, "R_GetCommandBuffer: bad size %i", bytes );
 		}
 		// if we run out of room, just start dropping commands
+		cmdDropped++;
 		return NULL;
 	}
 
@@ -422,6 +424,21 @@ void RE_EndFrame( int *frontEndMsec, int *backEndMsec ) {
 
 	if ( !tr.registered ) {
 		return;
+	}
+	// r_pixelprobe N: the wasm build presents exactly one frame and then freezes on the
+	// loading screen. RC_SWAP_BUFFERS is enqueued through R_GetCommandBuffer, which drops
+	// commands once the per-frame buffer is full, so report the fill level and the drop count.
+	{
+		static cvar_t	*cmdprobe;
+		static int		cmdFrame;
+
+		if ( !cmdprobe ) {
+			cmdprobe = ri.Cvar_Get( "r_pixelprobe", "0", CVAR_TEMP );
+		}
+		if ( cmdprobe->integer && !( cmdFrame++ % cmdprobe->integer ) ) {
+			Com_Printf( "CMDBUF used %i/%i\n", backEndData[tr.smpFrame]->commands.used,
+				MAX_RENDER_COMMANDS );
+		}
 	}
 	cmd = R_GetCommandBuffer( sizeof( *cmd ) );
 	if ( !cmd ) {

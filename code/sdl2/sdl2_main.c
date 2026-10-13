@@ -34,6 +34,11 @@ Foundation, Inc., 51 Franklin St, Fifth Floor, Boston, MA  02110-1301  USA
 
 #include <SDL.h>
 
+#ifdef __EMSCRIPTEN__
+#include <emscripten.h>
+#include <emscripten/html5.h>
+#endif
+
 #include "../game/q_shared.h"
 #include "../qcommon/qcommon.h"
 #include "../renderer/tr_public.h"
@@ -172,6 +177,13 @@ char *Sys_ConsoleInput( void )
 
 	if (!ttyChecked) {
 		ttyChecked = qtrue;
+#ifdef __EMSCRIPTEN__
+		// Emscripten reports a TTY on stdin, but read() on it blocks the main
+		// thread (the JS TTY prompts synchronously). There is no terminal in a
+		// browser, so the console input path is disabled and the engine drives
+		// itself from the canvas and the URL command line.
+		return NULL;
+#endif
 		if (isatty(STDIN_FILENO) == 1) {
 			struct termios tc;
 
@@ -467,8 +479,28 @@ int main (int argc, char **argv)
 {
 	int len, i;
 	char *cmdline;
+	qboolean dedicated = qfalse;
 
-	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO | SDL_INIT_TIMER) != 0) {
+	// A dedicated server never opens a window, never plays sound. On
+	// Emscripten, SDL_INIT_VIDEO initialises the browser video driver, which
+	// reads the JS screen object, so a headless run (node, a test harness) has
+	// to skip it. Detect +set dedicated 1 from the command line because
+	// com_dedicated is not created until Com_Init.
+	for (i = 1; i < argc; i++) {
+		if (!strcmp(argv[i], "dedicated")) {
+			if (i + 1 < argc && argv[i+1][0] != '-') {
+				dedicated = (argv[i+1][0] != '0');
+			} else {
+				dedicated = qtrue;
+			}
+		}
+	}
+
+	int sdlFlags = SDL_INIT_TIMER;
+	if (!dedicated) {
+		sdlFlags |= SDL_INIT_VIDEO | SDL_INIT_AUDIO;
+	}
+	if (SDL_Init(sdlFlags) != 0) {
 		fprintf(stderr, "SDL_Init failed: %s\n", SDL_GetError());
 		return 1;
 	}
@@ -487,6 +519,12 @@ int main (int argc, char **argv)
 	}
 
 	Com_Init(cmdline);
+
+#ifdef __EMSCRIPTEN__
+	// The browser cannot block. Com_Frame runs as the main loop callback.
+	emscripten_set_main_loop(Com_Frame, 0, 0);
+	return 0;
+#endif
 
 	while (1) {
 		Com_Frame();

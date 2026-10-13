@@ -1462,6 +1462,14 @@ void R_RenderView (viewParms_t *parms) {
 
 	tr.viewCount++;
 
+#ifdef __EMSCRIPTEN__
+	{
+		static int rvframes;
+		if ( ++rvframes % 20 == 1 ) {
+		}
+	}
+#endif
+
 	// set viewParms.world
 	R_RotateForViewer ();
 

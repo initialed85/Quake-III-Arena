@@ -241,10 +241,12 @@ RB_TestFlare
 ==================
 */
 void RB_TestFlare( flare_t *f ) {
-	float			depth;
 	qboolean		visible;
 	float			fade;
+#ifndef __EMSCRIPTEN__
+	float			depth;
 	float			screenZ;
+#endif
 
 	backEnd.pc.c_flareTests++;
 
@@ -252,6 +254,13 @@ void RB_TestFlare( flare_t *f ) {
 	// don't bother with another sync
 	glState.finishCalled = qfalse;
 
+#ifdef __EMSCRIPTEN__
+	// WebGL cannot read the depth attachment: glReadPixels( GL_DEPTH_COMPONENT ) flushes the
+	// whole render queue, and Chrome answers the stall by killing the context ("GPU stall due
+	// to ReadPixels" -> webglcontextlost -> the client shuts down and the canvas freezes).
+	// Skip the occlusion test and draw the flare.
+	visible = qtrue;
+#else
 	// read back the z buffer contents
 	qglReadPixels( f->windowX, f->windowY, 1, 1, GL_DEPTH_COMPONENT, GL_FLOAT, &depth );
 
@@ -259,6 +268,7 @@ void RB_TestFlare( flare_t *f ) {
 		( ( 2*depth - 1 ) * backEnd.viewParms.projectionMatrix[11] - backEnd.viewParms.projectionMatrix[10] );
 
 	visible = ( -f->eyeZ - -screenZ ) < 24;
+#endif
 
 	if ( visible ) {
 		if ( !f->visible ) {

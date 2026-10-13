@@ -279,9 +279,16 @@ static int NET_IPSocket( char *net_interface, int port )
 
 	// make it broadcast capable
 	if (setsockopt(newsocket, SOL_SOCKET, SO_BROADCAST, (char *)&one, sizeof(one)) == -1) {
+		// SO_BROADCAST only matters for the LAN server discovery broadcast, which a
+		// browser socket cannot do at all. Emscripten rejects the option, so treat it
+		// as advisory there rather than failing the socket.
+#ifdef __EMSCRIPTEN__
+		Com_DPrintf("UDP_OpenSocket: SO_BROADCAST unavailable (%s)\n", NET_ErrorString());
+#else
 		Com_Printf("ERROR: UDP_OpenSocket: setsockopt SO_BROADCAST:%s\n", NET_ErrorString());
 		close(newsocket);
 		return 0;
+#endif
 	}
 
 	if (!net_interface || !net_interface[0] || !Q_stricmp(net_interface, "localhost")) {
